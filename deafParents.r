@@ -48,22 +48,23 @@ pdat <- pdat%>%
                                         # some deaf kid in house who is unrelated to ref.
                                         # when there is no deafKid&(relp==15), min returns Inf
         adult=agep>18 & agep>min(fakeAge[deafKid]), #at least 15 years older than some deaf kid and at least 19
-        kid=agep<19 & (
-            ((relp==0)&any(relp==6))| # ego is ref, parent in HH
-            (relp%in%c(2:4,14))|  # ego is ref's kid, ref has no grandkids in house
-            ((relp==15)&(fakeAge<suppressWarnings(max(agep[relp==13]))))| # ego is kid of unmarried partner of ref?
+        kid1=agep<19 & ((relp==0)&any(relp==6)), # ego is ref, parent in HH
+        kid2=agep<19 & (relp%in%c(2:4,14)),  # ego is ref's kid, ref has no grandkids in house
+        kid3=agep<19 & ((relp==15)&(fakeAge<suppressWarnings(max(agep[relp==13])))),
+                                        # ego is kid of unmarried partner of ref?
                                         #logic: ref is unrelated to ego;
                                         # if ref has unmarried partner, ego is at least 15 years younger;
                                         # if there is no umarried partner, max(agep[relp==13]) returns -Inf
-            (relp==7)), #ego is ref's grandkid
-        parent=
-            (any(relp%in%c(2:4,14,7))&(relp==0))| #ego is ref; kid or grandkid in HH
-            (any(relp%in%c(2:4,7,14))&(relp%in%c(1,13)))| # ego married/partner to ref; ref's (grand)kid in HH
-            (relp==6)| # ego is parent of ref
-            (relp%in%c(2:4,9,14)&any(relp==7)&(agep>max(fakeAge[relp==7])))| #ego is parent, ref is grandparent
+        kid4=agep<19 & (relp==7), #ego is ref's grandkid
+        kid=kid1|kid2|kid3|kid4,
+        parent1=(any(relp%in%c(2:4,14,7))&(relp==0)), #ego is ref; kid or grandkid in HH
+        parent2=(any(relp%in%c(2:4,7,14))&(relp%in%c(1,13))), # ego married/partner to ref; ref's (grand)kid in HH
+        parent3=(relp==6), # ego is parent of ref
+        parent4= (relp%in%c(2:4,9,14)&any(relp==7)&(agep>max(fakeAge[relp==7]))), #ego is parent, ref is grandparent
                                         #(maybe ego is aunt/uncle of kids...impossible to tell I think)
-            unmarriedPartnerParent|
-            ((relp==0)&any(unmarriedPartnerParent)), # ego's unmarried partner is a parent (?)
+        parent5= unmarriedPartnerParent,
+        parent6=  ((relp==0)&any(unmarriedPartnerParent)), # ego's unmarried partner is a parent (?)
+        parent=parent1|parent2|parent3|parent4|parent5|parent6,
         deafCharge=deafKid&(fakeAge<suppressWarnings(max(agep[agep>17]))), # there's at least one adult 15 years
                                         #older than this deaf kid
         numDeafKids=sum(deafKid),

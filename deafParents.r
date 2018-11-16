@@ -60,7 +60,7 @@ pdat <- pdat%>%
         parent1=(any(relp%in%c(2:4,14,7))&(relp==0)), #ego is ref; kid or grandkid in HH
         parent2=(any(relp%in%c(2:4,7,14))&(relp%in%c(1,13))), # ego married/partner to ref; ref's (grand)kid in HH
         parent3=(relp==6), # ego is parent of ref
-        parent4= (relp%in%c(2:4,9,14)&any(relp==7)&(agep>max(fakeAge[relp==7]))), #ego is parent, ref is grandparent
+        parent4= (relp%in%c(2:4,9,14)&any(relp==7)&(agep>min(fakeAge[relp==7]))), #ego is parent, ref is grandparent
                                         #(maybe ego is aunt/uncle of kids...impossible to tell I think)
         parent5= unmarriedPartnerParent,
         parent6=  ((relp==0)&any(unmarriedPartnerParent)), # ego's unmarried partner is a parent (?)
@@ -121,7 +121,14 @@ results <- list(
     anyAd=estExpr(anyDeafAdults,deafCharge,pdat),
     twoAd=estExpr(twoPlusDeafAdults,deafCharge,pdat))
 
-save(pdat,results,file='deafHH.RData')
+parentKidCategories <- list(
+    kid=sapply(1:4,function(i) estSEstr(paste0('kid',i),subst='kid&(dear==1)',sdat=pdat)),
+    parent=sapply(1:6,function(i) estSEstr(paste0('parent',i),subst='parent&(dear==1)',sdat=pdat)))
+
+
+save(pdat,file='deafHHdata.RData')
+
+save(parentKidCategories,results,file='deafHHresults.RData')
 
 sink('deafParents.txt')
 print('% deaf kids living w/ parent/guardian with ANY deaf parent/guardian (proportion, SE, n):')

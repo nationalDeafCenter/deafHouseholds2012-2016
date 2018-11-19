@@ -29,3 +29,9 @@ names(pdat) <- tolower(names(pdat))
 pdat$agep <- as.factor(pdat$agep)
 
 ests <- svby('dear==1','agep',FUN=estSEstr,sdat=pdat,prop=FALSE)
+
+estsSex <- pdat%>%group_by(sex,agep)%>%do(propDeaf=estSEstr('dear==1',sdat=.))
+
+save(ests,estsSex,file='deafPropByAge.RData')
+
+

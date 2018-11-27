@@ -60,6 +60,14 @@ ggplot(filter(ests,Age<65),aes(Age,est))+
     ggtitle('% Deaf By Age','ACS 2012-2016')
 ggsave('percentDeafByAge0-64.pdf')
 
+ggplot(filter(ests,Age<45),aes(Age,est))+
+    geom_point()+
+    geom_errorbar(mapping=aes(ymin=est-2*se,ymax=est+2*se),width=0)+
+    geom_smooth(se=FALSE)+
+    ylab('% Deaf')+
+    scale_y_continuous(labels=percent)+
+    ggtitle('% Deaf By Age','ACS 2012-2016')
+ggsave('percentDeafByAge0-44.pdf')
 
 estsSex$Age=as.numeric(as.character(estsSex$agep))
 ggplot(estsSex,aes(Age,est,color=as.factor(sex)))+
@@ -95,3 +103,10 @@ estsSex$sex <- c('Male','Female')[estsSex$sex]
 openxlsx::write.xlsx(list(deafByAge=ests,
                           deafByAgeAndSex=estsSex),
                      file='PercentDeafByAge.xlsx')
+
+
+N <- 1000#sum(ests$n)
+increase <- data.frame(
+    Age=1:max(ests$Age),
+    ndeaf=ests$est[-1]*N)
+increase$nmore=increase$ndeaf-ests$est[-nrow(ests)]*N

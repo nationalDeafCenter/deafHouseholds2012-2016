@@ -2,8 +2,8 @@ library(readr) ## read in the csvs faster
 library(dplyr)
 library(survey)
 
-source('generalCode/estimationFunctions.r')
-source('generalCode/median.r')
+source('../generalCode/estimationFunctions.r')
+source('../generalCode/median.r')
 ## Median Annual Salary STEM
 ## Number/Percent in STEM field
 
@@ -17,16 +17,16 @@ pVars <- c('SERIALNO','DEAR','ST','AGEP','COW','ADJINC','SCHL','WKW','WKHP','SCH
 
 ## need: DEAR, attain, employment,PERNP, fulltime
 
-firstTry <- read_csv('../../data/acs5yr2016/ss16pusa.csv',n_max=2)
+firstTry <- read_csv('../../../data/acs5yr2016/ss16pusa.csv',n_max=2)
 ccc <- ifelse(names(firstTry)%in%pVars,
               ifelse(names(firstTry)=='OCCP','c','i'),'-')
 ccc <- paste(ccc,collapse='')
 
-sdat <- read_csv('../../data/acs5yr2016/ss16pusa.csv',col_types=ccc) ### CHANGE TO APPROPRIATE LOCATION
+sdat <- read_csv('../../../data/acs5yr2016/ss16pusa.csv',col_types=ccc) ### CHANGE TO APPROPRIATE LOCATION
 
 
 for(pp in c('b','c','d')){
-    sdat2 <- read_csv(paste0('../../data/acs5yr2016/ss16pus',pp,'.csv'),col_types=ccc) ## CHANGE TO APPROPRIATE LOCATION
+    sdat2 <- read_csv(paste0('../../../data/acs5yr2016/ss16pus',pp,'.csv'),col_types=ccc) ## CHANGE TO APPROPRIATE LOCATION
     sdat <- rbind(sdat[,pVars],sdat2[,pVars])
 }
 

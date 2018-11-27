@@ -1,27 +1,27 @@
 library(readr)
 library(dplyr)
-source('generalCode/estimationFunctions.r')
+source('../generalCode/estimationFunctions.r')
 
 ###In households with a deaf child between the age of 0-22(?),
 ###how many of them have a head of household (or actually, a parent) who are also deaf?
 
 pVars <- c('serialno','agep','dear','relp','sex','pwgtp',paste0('pwgtp',1:80))
 
-firstTry <- read_csv('../../data/acs5yr2016/ss16pusa.csv',n_max=10)
+firstTry <- read_csv('../../../data/acs5yr2016/ss16pusa.csv',n_max=10)
 
 ct <- ifelse(names(firstTry)=='SERIALNO','n',ifelse(tolower(names(firstTry))%in%pVars,'i','-'))
 print(table(ct))
 print(names(firstTry)[ct!='-'])
 ct <- paste(ct,collapse='')
 
-pdat <- read_csv('../../data/acs5yr2016/ss16pusa.csv',col_types=ct)
+pdat <- read_csv('../../../data/acs5yr2016/ss16pusa.csv',col_types=ct)
 str(pdat)
 
 pdat <- rbind(
     pdat,
-    read_csv('../../data/acs5yr2016/ss16pusb.csv',col_types=ct),
-    read_csv('../../data/acs5yr2016/ss16pusc.csv',col_types=ct),
-    read_csv('../../data/acs5yr2016/ss16pusd.csv',col_types=ct))
+    read_csv('../../../data/acs5yr2016/ss16pusb.csv',col_types=ct),
+    read_csv('../../../data/acs5yr2016/ss16pusc.csv',col_types=ct),
+    read_csv('../../../data/acs5yr2016/ss16pusd.csv',col_types=ct))
 
 names(pdat) <- tolower(names(pdat))
 

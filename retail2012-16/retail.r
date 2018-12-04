@@ -133,24 +133,42 @@ estEmploymentPercent <- function(dat){
   byCat <- lapply(top6,
     function(x){
       dat6$rcat <- dat6$retailCat==x
-      res <- dat6%>%group_by(deaf)%>%summarize(xx=100*svmean(rcat,pwgtp))
+      res <- dat6%>%group_by(deaf)%>%summarize(xx=svmean(rcat,pwgtp))
       names(res)[names(res)=='xx'] <- x
       res
     })
 
+  ## percent of total
   tot <- rbind(n=overall$n,
     `% Top 6 Retail Jobs`=overall$propRetail,
-    do.call('rbind',lapply(byCat,function(x) t(x[,2]))))
+    do.call('rbind',lapply(byCat,function(x) t(x[,2])*overall$propRetail)))
+
+  ## check sums
+  print(c(sum(tot[3:8,1]),tot[2,1]))
+  print(c(sum(tot[3:8,2]),tot[2,2]))
+
+  ## percent of top 6
+  perTop6 <- do.call('rbind',lapply(byCat,function(x) t(x[,2])))*100
+  top6n <- dat6%>%group_by(deaf)%>%summarize(n=n())
 
   if(all(sapply(byCat,function(x) identical(x$deaf,overall$deaf)))){
     colnames(tot) <- overall$deaf
   } else stop('deaf and hearing not lined up right')
+  if(identical(overall$deaf,top6n$deaf)){
+    perTop6 <- rbind(top6n$n,c(100,100),perTop6)
+    colnames(perTop6) <- overall$deaf
+  } else stop('deaf and hearing not lined up right')
 
-  ## check sums
-  print(c(sum(tot[3:8,'deaf']),tot[2,'deaf']))
-  print(c(sum(tot[3:8,'hearing']),tot[2,'hearing']))
 
-  rownames(tot)[-c(1:2)] <- paste('% of top 6',rownames(tot)[-c(1:2)])
+  # combine
+  tot <- round(cbind(tot,perTop6),1)
+  rownames(tot)[-c(1:2)] <- paste('%',rownames(tot)[-c(1:2)])
+
+  ## colnames
+  tot <- rbind(c('% of Total','','% of Top 6',''),
+    colnames(tot),
+    tot
+  )
 
   tot
 }
@@ -223,7 +241,6 @@ info <- data.frame(
     top6))
 
 
-rownames(totFT)[-c(1:2)] <- paste('% of top 6',rownames(totFT)[2])
 
 ### write everything to google sheet
 openxlsx::write.xlsx(
@@ -233,6 +250,6 @@ openxlsx::write.xlsx(
     `ed. attainment`=edres,
     `ed. attainment full-time`=edresFT),
   file='retail.xlsx',
-  rowNames=TRUE,colNames=TRUE,colWidth='auto')
+  rowNames=TRUE,colNames=FALSE,colWidth='auto')
 
 

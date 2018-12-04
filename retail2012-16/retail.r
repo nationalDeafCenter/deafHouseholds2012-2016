@@ -124,124 +124,91 @@ dat <- mutate(dat,
 
 #### estimation time
 
-overall <-
-  dat%>%group_by(deaf)%>%summarize(propRetail=100*svmean(retailAny,pwgtp),n=n())
+estEmploymentPercent <- function(dat){
+  overall <-
+    dat%>%group_by(deaf)%>%summarize(propRetail=100*svmean(retailAny,pwgtp),n=n())
 
-byCat <- lapply(top6,
-  function(x){
-    dat$rcat <- dat$retailCat==x
-    res <- dat%>%group_by(deaf)%>%summarize(xx=100*svmean(rcat,pwgtp))
-    names(res)[names(res)=='xx'] <- x
-    res
+  dat6 <- filter(dat,retailAny)
+
+  byCat <- lapply(top6,
+    function(x){
+      dat6$rcat <- dat6$retailCat==x
+      res <- dat6%>%group_by(deaf)%>%summarize(xx=100*svmean(rcat,pwgtp))
+      names(res)[names(res)=='xx'] <- x
+      res
     })
 
-tot <- rbind(n=overall$n,
-  anyTop6retail=overall$propRetail,
-  do.call('rbind',lapply(byCat,function(x) t(x[,2]))))
+  tot <- rbind(n=overall$n,
+    `% Top 6 Retail Jobs`=overall$propRetail,
+    do.call('rbind',lapply(byCat,function(x) t(x[,2]))))
 
-if(all(sapply(byCat,function(x) identical(x$deaf,overall$deaf)))){
-  colnames(tot) <- overall$deaf
-} else stop('deaf and hearing not lined up right')
+  if(all(sapply(byCat,function(x) identical(x$deaf,overall$deaf)))){
+    colnames(tot) <- overall$deaf
+  } else stop('deaf and hearing not lined up right')
 
-## check sums
-c(sum(tot[3:8,'deaf']),tot[2,'deaf'])
-c(sum(tot[3:8,'hearing']),tot[2,'hearing'])
+  ## check sums
+  print(c(sum(tot[3:8,'deaf']),tot[2,'deaf']))
+  print(c(sum(tot[3:8,'hearing']),tot[2,'hearing']))
 
-## full-time
-overallFT <-
-  dat%>%filter(fulltime)%>%group_by(deaf)%>%summarize(propRetail=100*svmean(retailAny,pwgtp),n=n())
+  rownames(tot)[-c(1:2)] <- paste('% of top 6',rownames(tot)[-c(1:2)])
 
-byCatFT <- lapply(top6,
-  function(x){
-    dat$rcat <- dat$retailCat==x
-    res <- dat%>%filter(fulltime)%>%group_by(deaf)%>%summarize(xx=100*svmean(rcat,pwgtp))
-    names(res)[names(res)=='xx'] <- x
-    res
-    })
+  tot
+}
 
-totFT <- rbind(n=overallFT$n,
-  anyTop6retail=overallFT$propRetail,
-  do.call('rbind',lapply(byCatFT,function(x) t(x[,2]))))
+## overall
+tot <- estEmploymentPercent(dat)
 
-if(all(sapply(byCatFT,function(x) identical(x$deaf,overallFT$deaf)))){
-  colnames(totFT) <- overall$deaf
-} else stop('deaf and hearing not lined up right')
-
-## check sums
-c(sum(totFT[3:8,'deaf']),totFT[2,'deaf'])
-c(sum(totFT[3:8,'hearing']),totFT[2,'hearing'])
-
+## full time
+totFT <- estEmploymentPercent(filter(dat,fulltime))
 
 ### by education level
 
+estEdLev <- function(dat){
 
-overallEd <-
-  FIX(dat%>%group_by(deaf,retailAny)%>%do(edLevel=factorProps('attainCum',.)))
+  overallEd <-
+    FIX(dat%>%group_by(deaf,retailAny)%>%do(edLevel=factorProps('attainCum',.)))
 
-byCatEd <-
-  FIX(dat%>%group_by(deaf,retailCat)%>%do(edLevel=factorProps('attainCum',.)))
-
-
-## check "not retail"="n/a"
-rbind(subset(overallEd,deaf=='deaf'&!retailAny)[,-c(1:2)],
-  subset(byCatEd,deaf=='deaf'&retailCat=='n/a')[,-c(1:2)])
-
-rbind(subset(overallEd,deaf=='hearing'&!retailAny)[,-c(1:2)],
-  subset(byCatEd,deaf=='hearing'&retailCat=='n/a')[,-c(1:2)])
-
-edres <-
-  lapply(c('deaf','hearing'), function(x)
-    cbind(t(overallEd%>%filter(deaf==x)%>%
-              mutate(retail=ifelse(retailAny,'Any Top 6 Retail Jobs','Not top 6 retail jobs'))%>%
-              select(-deaf,-retailAny)%>%column_to_rownames('retail')),
-      t(byCatEd%>%filter(deaf=='deaf',retailCat!='n/a')%>%select(-deaf)%>%column_to_rownames('retailCat'))))
-
-edres <- cbind(
-  rbind(c('deaf',rep('',ncol(edres[[1]])-1)),
-    colnames(edres[[1]]), round(edres[[1]],1)),
-  rbind(c('hearing',rep('',ncol(edres[[2]])-1)),
-    colnames(edres[[2]]), round(edres[[2]],1)))
-
-edres <- edres[-grep('SE',rownames(edres)),]
-rownames(edres) <- sub('X....','%>=',rownames(edres),fixed=TRUE)
-rownames(edres) <- sub('X..','%',rownames(edres),fixed=TRUE)
-colnames(edres) <- NULL
-
-### full time
-overallEdFT <-
-  FIX(dat%>%filter(fulltime)%>%group_by(deaf,retailAny)%>%do(edLevel=factorProps('attainCum',.)))
-
-byCatEdFT <-
-  FIX(dat%>%filter(fulltime)%>%group_by(deaf,retailCat)%>%do(edLevel=factorProps('attainCum',.)))
+  byCatEd <-
+    FIX(dat%>%group_by(deaf,retailCat)%>%do(edLevel=factorProps('attainCum',.)))
 
 
-## check "not retail"="n/a"
-rbind(subset(overallEdFT,deaf=='deaf'&!retailAny)[,-c(1:2)],
-  subset(byCatEdFT,deaf=='deaf'&retailCat=='n/a')[,-c(1:2)])
+  ## check "not retail"="n/a"
+  rbind(subset(overallEd,deaf=='deaf'&!retailAny)[,-c(1:2)],
+    subset(byCatEd,deaf=='deaf'&retailCat=='n/a')[,-c(1:2)])
 
-rbind(subset(overallEdFT,deaf=='hearing'&!retailAny)[,-c(1:2)],
-  subset(byCatEdFT,deaf=='hearing'&retailCat=='n/a')[,-c(1:2)])
+  rbind(subset(overallEd,deaf=='hearing'&!retailAny)[,-c(1:2)],
+    subset(byCatEd,deaf=='hearing'&retailCat=='n/a')[,-c(1:2)])
 
-edresFT <-
-  lapply(c('deaf','hearing'), function(x)
-    cbind(t(overallEdFT%>%filter(deaf==x)%>%
-              mutate(retail=ifelse(retailAny,'Any Top 6 Retail Jobs','Not top 6 retail jobs'))%>%
-              select(-deaf,-retailAny)%>%column_to_rownames('retail')),
-      t(byCatEdFT%>%filter(deaf=='deaf',retailCat!='n/a')%>%select(-deaf)%>%column_to_rownames('retailCat'))))
+  edres <-
+    lapply(c('deaf','hearing'), function(x)
+      cbind(t(overallEd%>%filter(deaf==x)%>%
+                mutate(retail=ifelse(retailAny,'Any Top 6 Retail Jobs','Not top 6 retail jobs'))%>%
+                select(-deaf,-retailAny)%>%column_to_rownames('retail')),
+        t(byCatEd%>%filter(deaf=='deaf',retailCat!='n/a')%>%select(-deaf)%>%column_to_rownames('retailCat'))))
 
-edresFT <- cbind(
-  rbind(c('deaf',rep('',ncol(edresFT[[1]])-1)),
-    colnames(edresFT[[1]]), round(edresFT[[1]],1)),
-  rbind(c('hearing',rep('',ncol(edresFT[[2]])-1)),
-    colnames(edresFT[[2]]), round(edresFT[[2]],1)))
+  edres <- cbind(
+    rbind(c('deaf',rep('',ncol(edres[[1]])-1)),
+      colnames(edres[[1]]), round(edres[[1]],1)),
+    rbind(c('hearing',rep('',ncol(edres[[2]])-1)),
+      colnames(edres[[2]]), round(edres[[2]],1)))
 
-edresFT <- edresFT[-grep('SE',rownames(edresFT)),]
-rownames(edresFT) <- sub('X....','%>=',rownames(edresFT),fixed=TRUE)
-rownames(edresFT) <- sub('X..','%',rownames(edresFT),fixed=TRUE)
-colnames(edresFT) <- NULL
+  edres <- edres[-grep('SE',rownames(edres)),]
+  rownames(edres) <- sub('X....','%>=',rownames(edres),fixed=TRUE)
+  rownames(edres) <- sub('X..','%',rownames(edres),fixed=TRUE)
+  colnames(edres) <- NULL
+
+  edres
+}
+
+## employed
+edres <- estEdLev(dat)
+
+## employed full time
+edresFT <- estEdLev(filter(dat,fulltime))
+
 
 info <- data.frame(
-  c('ACS 2012-2016 Data',
+  info=c('ACS 2012-2016 Data',
     'POPULATION:',
     'Ages 18-64',
     'Non-institutionalized',
@@ -254,6 +221,9 @@ info <- data.frame(
     'Retail categories are top 6 occupation codes for people who work in retail industry (as defined by INDP or NAICSP)',
     'These are:',
     top6))
+
+
+rownames(totFT)[-c(1:2)] <- paste('% of top 6',rownames(totFT)[2])
 
 ### write everything to google sheet
 openxlsx::write.xlsx(

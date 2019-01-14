@@ -5,26 +5,6 @@ library(tibble)
 
 source('../generalCode/estimationFunctions.r')
 
-#(1) percentage of deaf/hearing in retail (general) << same as our employment report.
-#(2) percentage of deaf/hearing in retail by category (if possible),
-#(3) the education levels of (1) & (2)
-
-## let's make our defintion of retail all the blokes that work at Whole Foods. So, 1-6.
-## [1] "Retail Salespersons"
-## [2] "First-Line Supervisors Of Retail Sales Workers"
-## [3] "Cashiers"
-## [4] "Stock Clerks And Order Fillers"
-## [5] "Customer Service Representatives"
-## [6] "Laborers And Freight, Stock, And Material Movers, Hand"
-
-## asales [10:46 AM]
-## good morning
-## do they also need to work in a "retail" industry?
-## for instance: customer service representative for a hospital
-## i'd say that's not retail, right?
-
-## Jeffrey [10:48 AM]
-## yeah-- I agree w you
 
 pVars <- c('DEAR','ST','AGEP','COW','SCHL','WKW','WKHP','SCH', 'OCCP','NAICSP','INDP','OCCP', 'SOCP','ESR','RELP','PWGTP',paste0('PWGTP',1:80))
 
@@ -105,9 +85,9 @@ estEmploymentPercent <- function(dat){
 
   dat6 <- filter(dat,postal)
 
-  byCat <- lapply(top6,
+  byCat <- lapply(cats,
     function(x){
-      dat6$rcat <- dat6$retailCat==x
+      dat6$rcat <- dat6$postalCat==x
       res <- dat6%>%group_by(deaf)%>%summarize(xx=svmean(rcat,pwgtp))
       names(res)[names(res)=='xx'] <- x
       res
@@ -115,32 +95,32 @@ estEmploymentPercent <- function(dat){
 
   ## percent of total
   tot <- rbind(n=overall$n,
-    `% Top 6 Retail Jobs`=overall$propRetail,
-    do.call('rbind',lapply(byCat,function(x) t(x[,2])*overall$propRetail)))
+    `% Postal Worker`=overall$propPostal,
+    do.call('rbind',lapply(byCat,function(x) t(x[,2])*overall$propPostal)))
 
   ## check sums
-  print(c(sum(tot[3:8,1]),tot[2,1]))
-  print(c(sum(tot[3:8,2]),tot[2,2]))
+  print(c(sum(tot[3:nrow(tot),1]),tot[2,1]))
+  print(c(sum(tot[3:nrow(tot),2]),tot[2,2]))
 
-  ## percent of top 6
-  perTop6 <- do.call('rbind',lapply(byCat,function(x) t(x[,2])))*100
-  top6n <- dat6%>%group_by(deaf)%>%summarize(n=n())
+  ## percent of all postal
+  perOfPostal <- do.call('rbind',lapply(byCat,function(x) t(x[,2])))*100
+  postaln <- dat6%>%group_by(deaf)%>%summarize(n=n())
 
   if(all(sapply(byCat,function(x) identical(x$deaf,overall$deaf)))){
     colnames(tot) <- overall$deaf
   } else stop('deaf and hearing not lined up right')
-  if(identical(overall$deaf,top6n$deaf)){
-    perTop6 <- rbind(top6n$n,c(100,100),perTop6)
-    colnames(perTop6) <- overall$deaf
+  if(identical(overall$deaf,postaln$deaf)){
+    perOfPostal <- rbind(postaln$n,c(100,100),perOfPostal)
+    colnames(perOfPostal) <- overall$deaf
   } else stop('deaf and hearing not lined up right')
 
 
   # combine
-  tot <- round(cbind(tot,perTop6),1)
+  tot <- round(cbind(tot,perOfPostal),1)
   rownames(tot)[-c(1:2)] <- paste('%',rownames(tot)[-c(1:2)])
 
   ## colnames
-  tot <- rbind(c('% of Total','','% of Top 6',''),
+  tot <- rbind(c('% of Total','','% of all postal',''),
     colnames(tot),
     tot
   )
@@ -159,25 +139,25 @@ totFT <- estEmploymentPercent(filter(dat,fulltime))
 estEdLev <- function(dat){
 
   overallEd <-
-    FIX(dat%>%group_by(deaf,retailAny)%>%do(edLevel=factorProps('attainCum',.)))
+    FIX(dat%>%group_by(deaf,postal)%>%do(edLevel=factorProps('attainCum',.)))
 
   byCatEd <-
-    FIX(dat%>%group_by(deaf,retailCat)%>%do(edLevel=factorProps('attainCum',.)))
+    FIX(dat%>%group_by(deaf,postalCat)%>%do(edLevel=factorProps('attainCum',.)))
 
 
-  ## check "not retail"="n/a"
-  rbind(subset(overallEd,deaf=='deaf'&!retailAny)[,-c(1:2)],
-    subset(byCatEd,deaf=='deaf'&retailCat=='n/a')[,-c(1:2)])
+  ## check "not postal"="n/a"
+  rbind(subset(overallEd,deaf=='deaf'&!postal)[,-c(1:2)],
+    subset(byCatEd,deaf=='deaf'&postalCat=='notPostal')[,-c(1:2)])
 
-  rbind(subset(overallEd,deaf=='hearing'&!retailAny)[,-c(1:2)],
-    subset(byCatEd,deaf=='hearing'&retailCat=='n/a')[,-c(1:2)])
+  rbind(subset(overallEd,deaf=='hearing'&!postal)[,-c(1:2)],
+    subset(byCatEd,deaf=='hearing'&postalCat=='notPostal')[,-c(1:2)])
 
   edres <-
     lapply(c('deaf','hearing'), function(x)
       cbind(t(overallEd%>%filter(deaf==x)%>%
-                mutate(retail=ifelse(retailAny,'Any Top 6 Retail Jobs','Not top 6 retail jobs'))%>%
-                select(-deaf,-retailAny)%>%column_to_rownames('retail')),
-        t(byCatEd%>%filter(deaf=='deaf',retailCat!='n/a')%>%select(-deaf)%>%column_to_rownames('retailCat'))))
+                mutate(postal=ifelse(postal,'Any Postal Job','Not Postal'))%>%
+                select(-deaf)%>%column_to_rownames('postal')),
+        t(byCatEd%>%filter(deaf=='deaf',postalCat!='n/a')%>%select(-deaf)%>%column_to_rownames('postalCat'))))
 
   edres <- cbind(
     rbind(c('deaf',rep('',ncol(edres[[1]])-1)),
@@ -211,20 +191,20 @@ info <- data.frame(
     'Worked at least 50 weeks in past 12 months',
     'At least 35 hr/per week',
     '',
-    'Retail categories are top 6 occupation codes for people who work in retail industry (as defined by INDP or NAICSP)',
+    'Postal categories are the types of postal jobs, as listed in OCCP',
     'These are:',
-    top6))
+    cats))
 
 
 
-### write everything to google sheet
+### write everything to xlsx
 openxlsx::write.xlsx(
   list(info=info,
     overall=tot,
     `full-time`=totFT,
     `ed. attainment`=edres,
     `ed. attainment full-time`=edresFT),
-  file='retail.xlsx',
+  file='postal.xlsx',
   rowNames=TRUE,colNames=FALSE,colWidth='auto')
 
 

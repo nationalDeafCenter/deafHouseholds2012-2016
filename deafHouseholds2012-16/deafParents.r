@@ -5,23 +5,23 @@ source('../generalCode/estimationFunctions.r')
 ###In households with a deaf child between the age of 0-22(?),
 ###how many of them have a head of household (or actually, a parent) who are also deaf?
 
-pVars <- c('serialno','agep','dear','relp','sex','pwgtp',paste0('pwgtp',1:80))
+pVars <- c('serialno','agep','dear','relp','sex','msp','pwgtp',paste0('pwgtp',1:80))
 
-firstTry <- read_csv('../../../data/acs5yr2017/ss17pusa.csv',n_max=10)
+firstTry <- read_csv('../../../data/acs5yr2017/psam_pusa.csv',n_max=10)
 
 ct <- ifelse(names(firstTry)=='SERIALNO','n',ifelse(tolower(names(firstTry))%in%pVars,'i','-'))
 print(table(ct))
 print(names(firstTry)[ct!='-'])
 ct <- paste(ct,collapse='')
 
-pdat <- read_csv('../../../data/acs5yr2017/ss17pusa.csv',col_types=ct)
+pdat <- read_csv('../../../data/acs5yr2017/psam_pusa.csv',col_types=ct)
 str(pdat)
 
 pdat <- rbind(
     pdat,
-    read_csv('../../../data/acs5yr2017/ss17pusb.csv',col_types=ct),
-    read_csv('../../../data/acs5yr2017/ss17pusc.csv',col_types=ct),
-    read_csv('../../../data/acs5yr2017/ss17pusd.csv',col_types=ct))
+    read_csv('../../../data/acs5yr2017/psam_pusb.csv',col_types=ct),
+    read_csv('../../../data/acs5yr2017/psam_pusc.csv',col_types=ct),
+    read_csv('../../../data/acs5yr2017/psam_pusd.csv',col_types=ct))
 
 names(pdat) <- tolower(names(pdat))
 
@@ -141,4 +141,90 @@ print(results$anyAd)
 print('% deaf kids living w/ older adults with ANY deaf adults (proportion, SE, n):')
 print(results$twoAd)
 sink()
+
+
+
+############# append ACS "own child" analysis from "ownkid.r"
+pdat <-
+  pdat%>%
+  ungroup()%>%
+  filter(relp<16)%>%
+  mutate(
+    acskid=(agep<18) & (!relp%in%c(0,1,6,13,8)), #not householder, married/partner to householder or parent
+    ownkid=acskid & relp%in%c(2:4)&(is.na(msp)|msp==6)&(agep<18),
+    relkid=acskid & relp%in%c(2:5,7,10)
+  )%>%
+  group_by(serialno)%>%
+  filter(any(acskid)&any(dear==1))%>% ## we're only interested in HH with kids & with a deaf person
+  mutate(
+    nacskid=sum(acskid),
+    nDeafAcskid=sum(acskid&(dear==1)),
+    nOwnKid=sum(ownkid),
+    nDeafOwnkid=sum(ownkid&(dear==1)),
+    nRelKid=sum(relkid),
+    nDeafRelKid=sum(relkid&(dear==1)),
+    acsparent=relp%in%c(0,1)&nOwnKid>0, ## official ACS definition (vis a vis own child)
+    reladult=(agep>17)&(relp%in%c(0,1,5,6,8,9,10,13) )& nRelKid>0, ## any family older than 17
+    acsadult=agep>17,
+    nParent=sum(acsparent),
+    nDeafParent=sum(acsparent&(dear==1)),
+    nRelAdult=sum(reladult),
+    nDeafRelAdult=sum(reladult&(dear==1)),
+    nAdult=sum(acsadult),
+    nDeafAdult=sum(acsadult&(dear==1))
+  )%>%
+  ungroup()
+
+pdat$anyDeafOwnKid <- pdat$nDeafOwnkid>0
+pdat$anyDeafParent <- pdat$nDeafParent>0
+pdat$twoDeafParents <- pdat$nDeafParent==2
+
+sink('acsDefinitionEstimates.txt')
+print('proportion deaf kids living w/ at least 1 deaf parent (official definitions)')
+print(estExpr(anyDeafParent,ownkid&(dear==1),pdat,FALSE))
+
+print('proportion deaf kids living w/ 2 deaf parents (official definitions)')
+print(estExpr(twoDeafParents,ownkid&(dear==1),pdat,FALSE))
+
+print('proportion deaf parents living w/ at least 1 own deaf kid (official definitions)')
+print(estExpr(anyDeafOwnKid,acsparent&(dear==1),pdat,FALSE))
+
+sink()
+
+
+### comparing
+pdat%>%
+  filter(dear==1,agep<18)%>%
+  xtabs(~kid+ownkid,.)
+# 2148 kids (adam's def) not acs "own kids"
+
+## OK so they are mutually exclusive
+table(with(pdat,kid1+kid2+kid3+kid4))
+table(with(pdat,kid1*kid2*kid3*kid4))
+pdat <- mutate(pdat,kidType=ifelse(kid1,1,ifelse(kid2,2,ifelse(kid3,3,ifelse(kid4,4,0)))))
+
+xtabs(~kidType,filter(pdat,dear==1))
+xtabs(~kidType+ownkid,filter(pdat,dear==1))
+with(filter(pdat,dear==1),mean(ownkid[kidType==2]))
+with(filter(pdat,dear==1,(kidType==2)&!ownkid),c(sum(agep==18),mean(agep==18)))
+with(filter(pdat,dear==1,(kidType==2)&!ownkid),c(sum(relp==14),mean(relp==14)))
+with(filter(pdat,dear==1,(kidType==2)&!ownkid),c(sum(msp!=6,na.rm=TRUE),mean(!is.na(msp)&msp!=6)))
+
+##### parents
+table(with(pdat,parent1+parent2+parent3+parent4+parent5+parent6))
+table(with(pdat,parent1+parent2+parent3+parent4))
+## 1-4 are mutually exclusive; 5 and 6 are not (106 cases of overlap)
+xtabs(~parent1+parent6,pdat)
+## parent6 and parent1 overlap in 53 cases
+xtabs(~parent2+parent5,pdat)
+## parent2 and parent5 overlap in 53 cases
+
+table(with(filter(pdat,dear==1),parent1+parent2+parent3+parent4+parent5+parent6))
+xtabs(~parent1+parent6,filter(pdat,dear==1))
+## parent6 and parent1 overlap in 53 cases
+xtabs(~parent2+parent5,filter(pdat,dear==1))
+
+pdat <- mutate(pdat,parentType=ifelse(parent1,1,ifelse(parent2,2,ifelse(parent3,3,ifelse(parent4,4,ifelse(parent5,5,ifelse(parent6,6,0)))))))
+
+addmargins(xtabs(~parentType+acsparent,pdat))
 

@@ -7,21 +7,21 @@ source('../generalCode/estimationFunctions.r')
 
 pVars <- c('serialno','agep','dear','relp','sex','pwgtp',paste0('pwgtp',1:80))
 
-firstTry <- read_csv('../../../data/acs5yr2016/ss16pusa.csv',n_max=10)
+firstTry <- read_csv('../../../data/acs5yr2017/ss17pusa.csv',n_max=10)
 
 ct <- ifelse(names(firstTry)=='SERIALNO','n',ifelse(tolower(names(firstTry))%in%pVars,'i','-'))
 print(table(ct))
 print(names(firstTry)[ct!='-'])
 ct <- paste(ct,collapse='')
 
-pdat <- read_csv('../../../data/acs5yr2016/ss16pusa.csv',col_types=ct)
+pdat <- read_csv('../../../data/acs5yr2017/ss17pusa.csv',col_types=ct)
 str(pdat)
 
 pdat <- rbind(
     pdat,
-    read_csv('../../../data/acs5yr2016/ss16pusb.csv',col_types=ct),
-    read_csv('../../../data/acs5yr2016/ss16pusc.csv',col_types=ct),
-    read_csv('../../../data/acs5yr2016/ss16pusd.csv',col_types=ct))
+    read_csv('../../../data/acs5yr2017/ss17pusb.csv',col_types=ct),
+    read_csv('../../../data/acs5yr2017/ss17pusc.csv',col_types=ct),
+    read_csv('../../../data/acs5yr2017/ss17pusd.csv',col_types=ct))
 
 names(pdat) <- tolower(names(pdat))
 

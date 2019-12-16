@@ -4,8 +4,6 @@ library(dplyr)
 library(ggplot2)
 source('../generalCode/estimationFunctions.r')
 
-###In households with a deaf child between the age of 0-22(?),
-###how many of them have a head of household (or actually, a parent) who are also deaf?
 
 pVars <- c('agep','dear','sex','pwgtp',paste0('pwgtp',1:80))
 
@@ -27,11 +25,34 @@ pdat <- rbind(
 
 names(pdat) <- tolower(names(pdat))
 
-pdat$agep <- as.factor(pdat$agep)
+#pdat$agep <- as.factor(pdat$agep)
 
-ests <- svby('dear==1','agep',FUN=estSEstr,sdat=pdat,prop=FALSE)
-ests <- as.data.frame(ests)
-ests$Age <- as.numeric(rownames(ests))
+fun <- function(.data,...){
+  propDeaf=estSEstr('dear==1',sdat=.data)
+  nDeaf=svTot(.data,'dear==1')
+  data.frame(
+    percent=propDeaf['est']*100,
+    propSE=propDeaf['se']*100,
+    totalNumber=nDeaf[1],
+    numSE=nDeaf[2],
+    n=propDeaf['n']
+  )
+}
+
+ests <- pdat%>%
+  group_by(agep)%>%
+  group_map(fun)
+
+## by age categories
+##0-4; 5-18; 19-34; 35-64; 65+
+estsCat <- pdat%>%
+  mutate(ageCat=cut(agep,c(0,5,19,35,65,100),include.lowest=TRUE,right=FALSE))%>%
+  group_by(ageCat)%>%
+  group_map(fun)
+
+openxlsx::write.xlsx(list(deafByAge=ests,
+                          deafByAgeCategories=estsSex),
+                     file='PercentDeafByAge.xlsx')
 
 
 estsSex <- pdat%>%group_by(sex,agep)%>%do(propDeaf=estSEstr('dear==1',sdat=.))
@@ -110,3 +131,21 @@ increase <- data.frame(
     Age=1:max(ests$Age),
     ndeaf=ests$est[-1]*N)
 increase$nmore=increase$ndeaf-ests$est[-nrow(ests)]*N
+
+
+### look at logs
+ggplot(filter(ests,Age<65,Age>1),aes(Age,log(est)))+
+  geom_point()+
+  geom_smooth(data=filter(ests,Age>1,Age<38),method='lm')+
+  geom_smooth(data=filter(ests,Age>36,Age<65),method='lm')+
+  ylab('Log(Proportion Deaf)')
+
+
+estsSex$Sex=c('Male','Female')[estsSex$sex]
+ggplot(filter(estsSex,Age<65,Age>1),aes(Age,log(est),color=Sex,group=Sex))+
+  geom_point()+
+  geom_smooth(data=filter(estsSex,Age>1,Age<38),method='lm')+
+  geom_smooth(data=filter(estsSex,Age>36,Age<65),method='lm')+
+  ylab('Log(Proportion Deaf)')+
+  geom_vline(xintercept=37,linetype='dotted')
+

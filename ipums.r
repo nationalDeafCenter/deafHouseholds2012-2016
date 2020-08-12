@@ -18,6 +18,8 @@ dat1 <- dat%>%
 rm(dat)
 
 
+save(dat1,file='../../data/ipums/deafRData')
+
 famDat <- dat1%>%
   group_by(serial)%>%
     summarize(nfams=nfams[1],nmothers=nmothers[1],nfathers=nfathers[1],npop=sum(poploc>0),

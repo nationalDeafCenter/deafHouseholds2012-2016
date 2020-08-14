@@ -18,7 +18,7 @@ dat1 <- dat%>%
 rm(dat)
 
 
-save(dat1,file='../../data/ipums/deafRData')
+save(dat1,file='../../data/ipums/deaf.RData')
 
 famDat <- dat1%>%
   group_by(serial)%>%
@@ -48,7 +48,8 @@ deafKids <- dat1%>%
         numDeafAdults=sum(age>17 & diffhear==2),
         anyDeafAdults=numDeafAdults>0,
         numDeafParents=deafDad+deafDad2+deafMom+deafMom2,
-        twoDeafParents=numDeafParents>=2
+        twoDeafParents=numDeafParents>=2,
+        numOtherDeafChildren=sum(age<18&diffhear==2)-1
          )
 
 ## just to check
@@ -59,24 +60,34 @@ deafKids <- filter(deafKids,diffhear==2,age<=17)
 deafKids%>%group_by(age)%>%summarize(hasParent=mean(hasParent))%>%ggplot(aes(age,hasParent))+geom_point()+ylim(0,1)+geom_smooth()
 
 
+estSubst <- function(subst,name){
+  N <- round(svTot(deafKids,subst,w1='perwt',wrep=paste0('repwtp',1:80)))
+  per <- estSEstr(subst,w1='perwt',wrep=paste0('repwtp',1:80),sdat=deafKids)
+  per[c(1,2)] <- round(per[c(1,2)]*100,1)
+  cbind(tibble(`living with...`=c(name,''),`N/%`=c('N','%')),rbind(N,per))
+}
+
+total <- round(svTot(deafKids,w1='perwt',wrep=paste0('repwtp',1:80)))
+
 ### proportions deaf kids
-kidEst <- rbind(
-  `N deaf kids (0-17)`=svTot(deafKids,w1='perwt',wrep=paste0('repwtp',1:80)),
-  `N deaf kids living with any parent(s)`=svTot(deafKids,'hasParent',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `N deaf kids living with 1 parent`=svTot(deafKids,'numParents==1',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `N deaf kids living with 2 parents`=svTot(deafKids,'numParents==2',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `N deaf kids living with any deaf parent(s)`=svTot(deafKids,'numDeafParents>0',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `% deaf kids living w any deaf parent (denominator: deaf kids living w a parent)`=estExpr(deafParent,hasParent,deafKids,w1name='perwt',wrepname=paste0('repwtp',1:80)),
-  `N deaf kids living with 1 parent`=svTot(deafKids,'numDeafParents==1',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `% deaf kids living w 1 deaf parent (denominator: deaf kids living w any parents)`=estExpr(numDeafParents==1,hasParent,deafKids,w1name='perwt',wrepname=paste0('repwtp',1:80)),
-  `N deaf kids living with 2 parents`=svTot(deafKids,'numDeafParents==2',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `% deaf kids living w 2 deaf parents (denominator: deaf kids living w a parent)`=estExpr(numDeafParents==2,hasParent,deafKids,w1name='perwt',wrepname=paste0('repwtp',1:80)),
-  `N deaf kids living w at least 1 adult (18+)`=svTot(deafKids,'numAdults>0',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `N deaf kids living w at least 1 deaf adult (18+)`=svTot(deafKids,'anyDeafAdults',w1='perwt',wrep=paste0('repwtp',1:80)),
-  `% deaf kids w at least 1 deaf adult (18+) (denominator: all deaf kids (0-17)`=estExpr(anyDeafAdults,sdat=deafKids,w1name='perwt',wrepname=paste0('repwtp',1:80))
-  )
+kidEst <- bind_rows(
+  estSubst('numDeafParents>0','at least 1 deaf parent'),
+  estSubst('numDeafParents==1','exactly 1 deaf parent'),
+  estSubst('numDeafParents==2','exactly 2 deaf parents'),
+  estSubst('numDeafAdults>0','at least 1 deaf adult'),
+  estSubst('numDeafAdults>1','at least 3 deaf adults'),
+  estSubst('numOtherDeafChildren>0','at least 1 other deaf kid'),
+  estSubst('numOtherDeafChildren>1','at least 2 other deaf kids'))%>%
+  add_case(`living with...`="Total/Any",`N/%`='N',est=total['est'],se=total['se'],n=total['n'],.before=1)%>%
+    add_case(`living with...`="NOTES:")%>%
+    add_case(`living with...`=paste("Year=",paste(unique(dat1$year),collapse=', ')))%>%
+      add_case(`living with...`="Excluding deaf children in group quarters")%>%
+        add_case(`living with...`="Child: <18; Adult: 18+")%>%
+          add_case(`living with...`="Denominator for % is all deaf children")
 
-colnames(kidEst) <- c('Estimate','Std. Error','n')
+write.csv(kidEst,'deafKidsWdeafParents.csv',row.names=FALSE)
 
-write.csv(kidEst,'deafKidsWdeafParents.csv')
+
+
+
 
